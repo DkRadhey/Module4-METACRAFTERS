@@ -1,53 +1,91 @@
-
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
-import "hardhat/console.sol";
 
-contract DegenToken is ERC20, Ownable, ERC20Burnable {
+contract DegenToken is ERC20,Ownable,ERC20Burnable{
 
-    constructor() ERC20("Degen", "DGN") {}
+    constructor() ERC20("Degen", "DGN") Ownable(msg.sender){}
 
-        function mint(address to, uint256 amount) public onlyOwner{
-            _mint(to, amount);
-        }
-        function transferTokens(address _reciever, uint amount) external{
-            require(balanceOf(msg.sender) >= amount, "you are not owner");
-            approve(msg.sender, amount);
-            transferFrom(msg.sender, _reciever, amount);
-        }
-        function checkBalance() external view returns(uint){
-           return balanceOf(msg.sender);
-        }
-        function burnTokens(uint amount) external{
-            require(balanceOf(msg.sender)>= amount, "You do not have enough Tokens");
-            _burn(msg.sender, amount);
-        }
-        function gameStore() public pure returns(string memory) {
-            return "1. ProPlayer NFT value = 200 \n 2. SuperNinja value = 100 /n 3. DegenCap value = 75";
-        }
-        function reedemTokens(uint choice) external payable{
-            require(choice<=3,"Invalid selection");
-            if(choice ==1){
-                require(balanceOf(msg.sender)>=200, "Insufficient Balance");
-                approve(msg.sender, 200);
-                transferFrom(msg.sender, owner(), 200);
+     // Items name available for Loot
+    enum loot{common,rare,unique,legend}
+
+     struct Player{
+     address toAddress;
+     uint amount;
+
+    }
+
+   //The queue of player for buying degenToken 
+    Player[] public players;
+
+    struct PlayerLoot{
+        
+        uint common;
+        uint rare;
+        uint unique;
+        uint legend;        
+    }
+
+    //To store the redeemed player loot cards
+    mapping (address=>PlayerLoot) public playerCards;
+
+    function buyDegen(address _toAddress,uint _amount)public{
+        players.push(Player({toAddress:_toAddress,amount:_amount}));
+    }
+
+    //minting of tokens for the buyers in the queue
+    function mintToken() public onlyOwner {
+        //loop to mint tokens for buyers in queue
+        while (players.length!=0) {
+            uint i = players.length -1;
+            if (players[i].toAddress != address(0)) { // Check for non-zero address
+            _mint(players[i].toAddress, players[i].amount);
+            players.pop();
             }
-            else if(choice ==2){
-                require(balanceOf(msg.sender)>=100, "Insufficient Balance");
-                approve(msg.sender, 100);
-                transferFrom(msg.sender, owner(), 100);
-            }
-            else{
-                require(balanceOf(msg.sender)>=75, "Insufficient Balance");
-                approve(msg.sender, 75);
-                transferFrom(msg.sender, owner(), 75);
-            }
-
-
         }
+    }
+    
+    //Transfer function for transferring tokens to other player
+    function transferDegen(address _to, uint _amount)public {
+        require(_amount<=balanceOf(msg.sender),"INSUFFICIENT");
+        _transfer(msg.sender, _to, _amount);
+    }
 
+
+
+    //Redeem different loot cards
+    function redeemyourloot( loot _card)public{
+        if(_card == loot.common){
+            require(balanceOf(msg.sender)>=15,"INSUFFICIENT");
+            playerCards[msg.sender].common +=1;
+            burn(15);
+        }else if(_card == loot.rare){
+            require(balanceOf(msg.sender)>=25,"Insufficient");
+            playerCards[msg.sender].rare +=1;
+            burn(25);
+        }else if(_card == loot.unique){
+            require(balanceOf(msg.sender)>=35,"INSUFFICIENT");
+            playerCards[msg.sender].unique +=1;
+            burn(35);
+        }else if(_card == loot.legend){
+            require(balanceOf(msg.sender)>=60,"INSUFFICIENT");
+            playerCards[msg.sender].legend +=1;
+            burn(60);
+        }else{
+            revert("NOT AMONGST AVAILABLE CARDS");
+        }
+    }
+
+    //function to burn token
+    function burnDegen(address _of, uint amount)public {
+        _burn(_of, amount);
+    }
+
+    //function to check the balance of tokens
+    function checkYourBalance()public view returns(uint){
+        return balanceOf(msg.sender);
+    }
 }
